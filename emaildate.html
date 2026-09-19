@@ -268,4 +268,339 @@
     });
   </script>
 </body>
+</html><!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Date / Time Converter</title>
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --card: #ffffff;
+      --text: #1f2937;
+      --muted: #6b7280;
+      --border: #d1d5db;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --secondary: #e5e7eb;
+      --success: #166534;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    .container {
+      max-width: 900px;
+      margin: 40px auto;
+      padding: 0 20px;
+    }
+
+    .card {
+      background: var(--card);
+      border: 1px solid #e5e7eb;
+      border-radius: 14px;
+      padding: 28px;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.06);
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 28px;
+    }
+
+    .description {
+      margin: 0 0 24px;
+      color: var(--muted);
+      line-height: 1.5;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 700;
+    }
+
+    textarea {
+      width: 100%;
+      min-height: 180px;
+      resize: vertical;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 14px;
+      font-family: Consolas, "Courier New", monospace;
+      font-size: 14px;
+      line-height: 1.5;
+      outline: none;
+    }
+
+    textarea:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+    }
+
+    .actions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin: 16px 0 24px;
+    }
+
+    button {
+      border: 0;
+      border-radius: 8px;
+      padding: 10px 16px;
+      font-size: 14px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+
+    .primary {
+      background: var(--primary);
+      color: white;
+    }
+
+    .primary:hover { background: var(--primary-hover); }
+
+    .secondary {
+      background: var(--secondary);
+      color: #111827;
+    }
+
+    .status {
+      min-height: 20px;
+      margin-top: 8px;
+      font-size: 13px;
+      color: var(--muted);
+    }
+
+    .help {
+      margin-top: 20px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #f9fafb;
+      border: 1px solid #e5e7eb;
+      font-size: 13px;
+      line-height: 1.6;
+      color: #4b5563;
+    }
+
+    code {
+      background: #eef2ff;
+      padding: 2px 5px;
+      border-radius: 4px;
+      color: #3730a3;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Date / Time Converter</h1>
+      <p class="description">
+        Paste email text below. The converter will turn dates such as
+        <code>Fri 4/9/2026 11:11 am</code> into
+        <code>2026-09-04-1111 - </code>.
+      </p>
+
+      <label for="inputText">Input</label>
+      <textarea id="inputText" placeholder="Paste your email text here..."></textarea>
+
+      <div class="actions">
+        <button class="primary" id="convertBtn">Convert</button>
+        <button class="secondary" id="copyBtn">Copy Output</button>
+        <button class="secondary" id="clearBtn">Clear</button>
+      </div>
+
+      <label for="outputText">Output</label>
+      <textarea id="outputText" placeholder="Converted result will appear here..." readonly></textarea>
+      <div class="status" id="status"></div>
+
+      <div class="help">
+        <strong>The converter accepts flexible date/time formats, including numeric dates, month names, optional weekday names, commas, and either 12-hour or 24-hour time.<br>
+        <strong>Examples:</strong><br>
+        Fri 4/9/2026 11:11 am → 2026-09-04-1111 -<br>
+        27 October 2022 17:13 → 2022-10-27-1713 -<br>
+        Thursday, October 27, 2022 5:59 PM → 2022-10-27-1759 -
+      </div>
+    </div>
+  </div>
+
+  <script>
+    const input = document.getElementById('inputText');
+    const output = document.getElementById('outputText');
+    const status = document.getElementById('status');
+
+    const MONTHS = {
+      jan: 1, january: 1,
+      feb: 2, february: 2,
+      mar: 3, march: 3,
+      apr: 4, april: 4,
+      may: 5,
+      jun: 6, june: 6,
+      jul: 7, july: 7,
+      aug: 8, august: 8,
+      sep: 9, sept: 9, september: 9,
+      oct: 10, october: 10,
+      nov: 11, november: 11,
+      dec: 12, december: 12
+    };
+
+    const WEEKDAY = '(?:Sunday|Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sun|Mon|Tue|Wed|Thu|Fri|Sat)';
+    const MONTH = '(?:January|February|March|April|May|June|July|August|September|Sept|October|November|December|Jan|Feb|Mar|Apr|Jun|Jul|Aug|Oct|Nov|Dec)';
+    const TIME = '(\\d{1,2}):(\\d{2})(?:\\s*(AM|PM))?';
+
+    // Supported examples / permutations include:
+    // Fri 4/9/2026 11:11 am
+    // 4/9/2026 11:11 AM
+    // 27 October 2022 17:13
+    // 27 Oct 2022 5:13 pm
+    // Thursday, October 27, 2022 5:59 PM
+    // Thu October 27 2022 5:59 PM
+    // Thursday, October 27, 2022, 5:59 PM
+    const numericRegex = new RegExp(
+      '(?:\\b' + WEEKDAY + '\\b[ ,]*)?' +
+      '(\\d{1,2})\\s*[\\/]\\s*(\\d{1,2})\\s*[\\/]\\s*(\\d{4})' +
+      '\\s+' + TIME,
+      'gi'
+    );
+
+    const dayMonthNameRegex = new RegExp(
+      '(?:\\b' + WEEKDAY + '\\b[ ,]*)?' +
+      '(\\d{1,2})\\s+(' + MONTH + ')\\s*,?\\s*(\\d{4})' +
+      '\\s+' + TIME,
+      'gi'
+    );
+
+    const monthNameDayRegex = new RegExp(
+      '(?:\\b' + WEEKDAY + '\\b[ ,]*)?' +
+      '(' + MONTH + ')\\s+(\\d{1,2})\\s*,?\\s*(\\d{4})' +
+      '(?:\\s*,)?\\s+' + TIME,
+      'gi'
+    );
+
+    function pad2(value) {
+      return String(value).padStart(2, '0');
+    }
+
+    function validDate(year, month, day) {
+      const d = new Date(year, month - 1, day);
+      return d.getFullYear() === year && d.getMonth() === month - 1 && d.getDate() === day;
+    }
+
+    function formatResult(year, month, day, hour, minute, ampm) {
+      let h = Number(hour);
+      const m = Number(minute);
+
+      if (!Number.isInteger(h) || !Number.isInteger(m) || m < 0 || m > 59) return null;
+
+      if (ampm) {
+        const period = ampm.toLowerCase();
+        if (h < 1 || h > 12) return null;
+        if (period === 'am' && h === 12) h = 0;
+        if (period === 'pm' && h !== 12) h += 12;
+      } else {
+        if (h < 0 || h > 23) return null;
+      }
+
+      const y = Number(year);
+      const mo = Number(month);
+      const d = Number(day);
+      if (!validDate(y, mo, d)) return null;
+
+      return `${y}-${pad2(mo)}-${pad2(d)}-${pad2(h)}${pad2(m)} - `;
+    }
+
+    function convert() {
+      let text = input.value;
+      if (!text.trim()) {
+        output.value = '';
+        status.textContent = 'Nothing to convert.';
+        return;
+      }
+
+      let count = 0;
+
+      // 1) Numeric: DD/MM/YYYY time [am/pm]
+      numericRegex.lastIndex = 0;
+      text = text.replace(numericRegex, (match, day, month, year, hour, minute, ampm) => {
+        const result = formatResult(year, month, day, hour, minute, ampm);
+        if (result) {
+          count++;
+          return result;
+        }
+        return match;
+      });
+
+      // 2) Month-name after day: DD Month YYYY time [am/pm]
+      dayMonthNameRegex.lastIndex = 0;
+      text = text.replace(dayMonthNameRegex, (match, day, monthName, year, hour, minute, ampm) => {
+        const month = MONTHS[monthName.toLowerCase()];
+        const result = formatResult(year, month, day, hour, minute, ampm);
+        if (result) {
+          count++;
+          return result;
+        }
+        return match;
+      });
+
+      // 3) Month-name first: Month DD, YYYY time [am/pm]
+      monthNameDayRegex.lastIndex = 0;
+      text = text.replace(monthNameDayRegex, (match, monthName, day, year, hour, minute, ampm) => {
+        const month = MONTHS[monthName.toLowerCase()];
+        const result = formatResult(year, month, day, hour, minute, ampm);
+        if (result) {
+          count++;
+          return result;
+        }
+        return match;
+      });
+
+      if (count === 0) {
+        output.value = 'Error - Please check your input.';
+        status.textContent = '';
+        return;
+      }
+
+      output.value = text;
+      status.textContent = count === 1
+        ? '1 date/time converted.'
+        : `${count} date/time values converted.`;
+    }
+
+    async function copyOutput() {
+      if (!output.value) {
+        status.textContent = 'There is no output to copy.';
+        return;
+      }
+
+      try {
+        await navigator.clipboard.writeText(output.value);
+        status.textContent = 'Output copied to clipboard.';
+      } catch (error) {
+        output.select();
+        document.execCommand('copy');
+        status.textContent = 'Output copied to clipboard.';
+      }
+    }
+
+    function clearAll() {
+      input.value = '';
+      output.value = '';
+      status.textContent = '';
+      input.focus();
+    }
+
+    document.getElementById('convertBtn').addEventListener('click', convert);
+    document.getElementById('copyBtn').addEventListener('click', copyOutput);
+    document.getElementById('clearBtn').addEventListener('click', clearAll);
+  </script>
+</body>
 </html>
